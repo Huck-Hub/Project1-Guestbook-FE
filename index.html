@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Guestbook & Feedback Wall</title>
+
+    <!-- Load Font Awesome 4.7 for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <!-- Load Vue 3 from the unpkg CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- UI/UX Theme: "Digital Lavender & Soft Tech Glassmorphism" -->
+    <style>
+        :root {
+            --bg-main: #0F1117;
+            --bg-card: rgba(255, 255, 255, 0.035);
+            --bg-card-hover: rgba(255, 255, 255, 0.065);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(142, 139, 255, 0.35);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --accent-primary: #8E8BFF;
+            --accent-glow: rgba(142, 139, 255, 0.16);
+            --accent-gradient: linear-gradient(135deg, #8E8BFF 0%, #C084FC 100%);
+            --star-color: #FACC15;
+            --success-color: #34D399;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            background-image:
+                radial-gradient(circle at 15% 15%, rgba(142, 139, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(192, 132, 252, 0.07) 0%, transparent 40%);
+            color: var(--text-primary);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 2.5rem 1.5rem 4rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header & Stats Bar */
+        .wall-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .brand-title h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.4rem 0;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-title p {
+            color: var(--text-secondary);
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            padding: 0.6rem 1.1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-pill strong {
+            color: var(--text-primary);
+        }
+
+        .stat-pill .fa-star {
+            color: var(--star-color);
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #0F1117;
+            font-weight: 700;
+            border: none;
+            padding: 0.75rem 1.35rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -6px rgba(142, 139, 255, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Toolbar: Search, Filter & Sort */
+        .toolbar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(12px);
+            padding: 1.25rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .control-group label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .input-box, .select-box {
+            background: rgba(15, 17, 23, 0.7);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 0.65rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-box:focus, .select-box:focus {
+            border-color: var(--accent-primary);
+        }
+
+        /* Guestbook Masonry / Bento Grid */
+        .wall-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .testimonial-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.3s ease,
+                        background 0.3s ease,
+                        box-shadow 0.3s ease;
+        }
+
+        .testimonial-card.featured {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(142, 139, 255, 0.03) 100%);
+            border-color: rgba(142, 139, 255, 0.22);
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-4px);
+            background: var(--bg-card-hover);
+            border-color: var(--border-glow);
+            box-shadow: 0 12px 30px -10px var(--accent-glow);
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .stars {
+            color: var(--star-color);
+            letter-spacing: 2px;
+            font-size: 1rem;
+        }
+
+        .badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-primary);
+            background: var(--accent-glow);
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+        }
+
+        .quote {
+            font-size: 1.02rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            margin: 0 0 1.5rem 0;
+            flex-grow: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-glass);
+        }
+
+        .author-info {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid var(--border-glow);
+        }
+
+        .author-info h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .author-info .role {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 0.15rem 0 0 0;
+        }
+
+        .like-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+            padding: 0.45rem 0.85rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .like-btn:hover {
+            color: var(--accent-primary);
+            border-color: var(--border-glow);
+            background: var(--accent-glow);
+        }
+
+        /* Add Entry Form Card */
+        .form-card {
+            max-width: 620px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 2.25rem;
+        }
+
+        .form-card h2 {
+            margin-top: 0;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .form-row {
+            margin-bottom: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .form-row textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        .success-banner {
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            background: rgba(52, 211, 153, 0.12);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="container">
+        <!-- Top Header with Live Stats and View Toggle Button -->
+        <header class="wall-header">
+            <div class="brand-title">
+                <h1 v-text="sitename"></h1>
+                <p>See what visitors, students, and developers are saying about their experience.</p>
+            </div>
+
+            <div class="header-actions">
+                <div class="stat-pill">
+                    Total Entries: <strong>{{ totalReviews }}</strong>
+                </div>
+                <div class="stat-pill">
+                    Avg Rating: <i class="fa fa-star" aria-hidden="true"></i> <strong>{{ averageRating }} / 5</strong>
+                </div>
+                <button class="btn-primary" v-on:click="toggleForm">
+                    <i class="fa" v-bind:class="showForm ? 'fa-arrow-left' : 'fa-pencil'" aria-hidden="true"></i>
+                    {{ showForm ? 'Back to Guestbook Wall' : 'Sign Guestbook' }}
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- VIEW 1: Guestbook Wall (shown when showForm is false) -->
+            <div v-if="!showForm">
+                <!-- Search, Filter & Sort Controls -->
+                <div class="toolbar">
+                    <div class="control-group">
+                        <label>Full-Stack Search (Name, Role, Quote, Rating)</label>
+                        <input class="input-box" v-model="searchQuery" placeholder="Type to search via Back-End API...">
+                    </div>
+
+                    <div class="control-group">
+                        <label>Filter by Star Rating</label>
+                        <select class="select-box" v-model="filterRating">
+                            <option value="all">All Ratings (1 - 5 ★)</option>
+                            <option value="5">5 Stars Only (★★★★★)</option>
+                            <option value="4">4 Stars Only (★★★★)</option>
+                            <option value="3">3 Stars Only (★★★)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Sort By</label>
+                        <select class="select-box" v-model="sortBy">
+                            <option value="likes">Most Helpful (Likes)</option>
+                            <option value="rating">Star Rating</option>
+                            <option value="name">Author Name</option>
+                            <option value="date">Date Posted</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Sort Order</label>
+                        <select class="select-box" v-model="sortOrder">
+                            <option value="descending">Descending (High to Low)</option>
+                            <option value="ascending">Ascending (Low to High)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Responsive Bento Grid of Guestbook Cards rendered with v-for -->
+                <div class="wall-grid">
+                    <article
+                        v-for="review in sortedReviews"
+                        class="testimonial-card"
+                        v-bind:class="{ featured: review.rating === 5 }"
+                    >
+                        <div>
+                            <div class="card-top">
+                                <div class="stars">
+                                    <span v-for="n in review.rating">★</span>
+                                </div>
+                                <span v-if="review.verified" class="badge">
+                                    <i class="fa fa-check-circle" aria-hidden="true"></i> Verified Visitor
+                                </span>
+                            </div>
+
+                            <p class="quote">“<span v-text="review.comment"></span>”</p>
+                        </div>
+
+                        <div class="card-footer">
+                            <div class="author-info">
+                                <img v-bind:src="imageAddress(review)" v-bind:alt="review.name" class="avatar">
+                                <div>
+                                    <h4 v-text="review.name"></h4>
+                                    <p class="role">{{ review.role }} • {{ review.date }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Clicking sends a PUT request to update likes in MongoDB -->
+                            <button class="like-btn" v-on:click="likeReview(review)">
+                                <i class="fa fa-thumbs-up" aria-hidden="true"></i> {{ review.likes }}
+                            </button>
+                        </div>
+                    </article>
+                </div>
+            </div>
+
+            <!-- VIEW 2: Sign Guestbook Form (shown when showForm is true) -->
+            <div v-else>
+                <div class="form-card">
+                    <h2>Sign the Community Guestbook</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        Share your thoughts! Name and Role must contain letters only.
+                    </p>
+
+                    <div class="form-row">
+                        <label>Your Name (Letters only) *</label>
+                        <input class="input-box" v-model="newReview.name" placeholder="e.g. Sarah Jenkins">
+                    </div>
+
+                    <div class="form-row">
+                        <label>Your Role / Title (Letters only) *</label>
+                        <input class="input-box" v-model="newReview.role" placeholder="e.g. Full Stack Developer">
+                    </div>
+
+                    <div class="form-row">
+                        <label>Star Rating (1 to 5) *</label>
+                        <select class="select-box" v-model.number="newReview.rating">
+                            <option v-bind:value="5">★★★★★ (5 - Excellent)</option>
+                            <option v-bind:value="4">★★★★ (4 - Great)</option>
+                            <option v-bind:value="3">★★★ (3 - Good)</option>
+                            <option v-bind:value="2">★★ (2 - Fair)</option>
+                            <option v-bind:value="1">★ (1 - Needs Work)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label>Your Feedback Message (At least 5 characters) *</label>
+                        <textarea class="input-box" v-model="newReview.comment" placeholder="Write your guestbook message here..."></textarea>
+                    </div>
+
+                    <div class="form-row" style="flex-direction: row; align-items: center; gap: 0.6rem;">
+                        <input type="checkbox" v-model="newReview.verified" id="verifiedCheck">
+                        <label for="verifiedCheck">Mark as Verified Visitor</label>
+                    </div>
+
+                    <button class="btn-primary" v-on:click="submitReview" v-bind:disabled="!isValidReview">
+                        <i class="fa fa-paper-plane" aria-hidden="true"></i> Submit to Guestbook
+                    </button>
+
+                    <div v-if="submitSuccess" class="success-banner">
+                        Thank you! Your guestbook entry has been saved to the database.
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        const BACKEND_URL = "http://localhost:3000";
+        const { createApp } = Vue;
+
+        const guestbookApp = createApp({
+            data() {
+                return {
+                    sitename: "Community Guestbook",
+                    showForm: false,
+                    reviews: [],
+                    searchQuery: "",
+                    filterRating: "all",
+                    sortBy: "likes",
+                    sortOrder: "descending",
+                    newReview: {
+                        name: "",
+                        role: "",
+                        rating: 5,
+                        comment: "",
+                        verified: true
+                    },
+                    submitSuccess: false
+                };
+            },
+            created() {
+                this.fetchReviews();
+            },
+            watch: {
+                searchQuery: "searchReviews"
+            },
+            methods: {
+                async fetchReviews() {
+                    const url = BACKEND_URL + "/reviews";
+                    let response = await fetch(url);
+                    this.reviews = await response.json();
+                },
+                async searchReviews() {
+                    const url = BACKEND_URL + "/search?q=" + encodeURIComponent(this.searchQuery);
+                    let response = await fetch(url);
+                    this.reviews = await response.json();
+                },
+                imageAddress(review) {
+                    return BACKEND_URL + "/" + (review.avatar || "images/avatar1.png");
+                },
+                toggleForm() {
+                    this.showForm = this.showForm ? false : true;
+                    this.submitSuccess = false;
+                },
+                async likeReview(review) {
+                    review.likes += 1;
+                    const url = BACKEND_URL + "/reviews/" + (review._id || review.id);
+                    const options = {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ likes: review.likes })
+                    };
+                    await fetch(url, options);
+                },
+                async submitReview() {
+                    const avatarNumber = (this.reviews.length % 6) + 1;
+                    const entryToSave = {
+                        id: Date.now(),
+                        name: this.newReview.name.trim(),
+                        role: this.newReview.role.trim(),
+                        rating: Number(this.newReview.rating),
+                        comment: this.newReview.comment.trim(),
+                        likes: 0,
+                        verified: this.newReview.verified,
+                        avatar: "images/avatar" + avatarNumber + ".png",
+                        date: new Date().toISOString().slice(0, 10)
+                    };
+
+                    const url = BACKEND_URL + "/reviews";
+                    const options = {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(entryToSave)
+                    };
+                    await fetch(url, options);
+
+                    this.submitSuccess = true;
+                    this.newReview.name = "";
+                    this.newReview.role = "";
+                    this.newReview.rating = 5;
+                    this.newReview.comment = "";
+                    await this.fetchReviews();
+                }
+            },
+            computed: {
+                totalReviews() {
+                    return this.reviews.length;
+                },
+                averageRating() {
+                    if (this.reviews.length === 0) return "0.0";
+                    let sum = 0;
+                    for (let i = 0; i < this.reviews.length; i++) {
+                        sum += Number(this.reviews[i].rating);
+                    }
+                    return (sum / this.reviews.length).toFixed(1);
+                },
+                sortedReviews() {
+                    let filtered = this.reviews;
+                    if (this.filterRating !== "all") {
+                        const targetRating = Number(this.filterRating);
+                        filtered = this.reviews.filter(function(r) {
+                            return Number(r.rating) === targetRating;
+                        });
+                    }
+
+                    const attr = this.sortBy;
+                    const direction = this.sortOrder === "ascending" ? 1 : -1;
+                    function compare(a, b) {
+                        if (a[attr] > b[attr]) return 1 * direction;
+                        if (a[attr] < b[attr]) return -1 * direction;
+                        return 0;
+                    }
+                    return filtered.slice().sort(compare);
+                },
+                isValidReview() {
+                    const lettersOnly = /^[A-Za-z\s]+$/;
+                    return lettersOnly.test(this.newReview.name.trim()) &&
+                           lettersOnly.test(this.newReview.role.trim()) &&
+                           this.newReview.comment.trim().length >= 5;
+                }
+            }
+        });
+
+        guestbookApp.mount("#app");
+    </script>
+
+</body>
+</html>
