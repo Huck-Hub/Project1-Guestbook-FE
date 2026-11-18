@@ -356,7 +356,7 @@
                 <div class="toolbar">
                     <div class="control-group">
                         <label>Full-Stack Search (Name, Role, Quote, Rating)</label>
-                        <input class="input-box" v-model="searchQuery" placeholder="Type to search via Back-End API...">
+                        <input class="input-box" v-model="searchQuery" placeholder="Type to search reviews...">
                     </div>
 
                     <div class="control-group">
@@ -470,7 +470,7 @@
                     </button>
 
                     <div v-if="submitSuccess" class="success-banner">
-                        Thank you! Your guestbook entry has been saved to the database.
+                        Thank you! Your guestbook entry has been saved.
                     </div>
                 </div>
             </div>
@@ -481,12 +481,89 @@
         const BACKEND_URL = "http://localhost:3000";
         const { createApp } = Vue;
 
+        const DEFAULT_REVIEWS = [
+            {
+                _id: "673b10010000000000000001",
+                id: 101,
+                name: "Sarah Jenkins",
+                role: "Product Lead",
+                rating: 5,
+                comment: "We integrated this full-stack MEVN setup into our platform overhaul and user engagement jumped by 40% in the first week. The clean glassmorphic aesthetic speaks volumes.",
+                likes: 14,
+                verified: true,
+                avatar: "images/avatar1.png",
+                date: "2026-11-15"
+            },
+            {
+                _id: "673b10010000000000000002",
+                id: 102,
+                name: "Alex Rivers",
+                role: "UI Developer",
+                rating: 5,
+                comment: "Clean, lightning-fast Vue 3 and Express REST API setup. Absolutely love the subtle Digital Lavender glassmorphism execution here!",
+                likes: 9,
+                verified: true,
+                avatar: "images/avatar2.png",
+                date: "2026-11-16"
+            },
+            {
+                _id: "673b10010000000000000003",
+                id: 103,
+                name: "Elena Rostova",
+                role: "Founder",
+                rating: 4,
+                comment: "The native MongoDB driver connection and live search watcher made browsing feedback entries effortless. Great responsive grid layout.",
+                likes: 7,
+                verified: true,
+                avatar: "images/avatar3.png",
+                date: "2026-11-17"
+            },
+            {
+                _id: "673b10010000000000000004",
+                id: 104,
+                name: "Marcus Vance",
+                role: "Software Engineer",
+                rating: 5,
+                comment: "Zero heavy frontend dependencies—just pure Vue 3 CDN, fetch Promises, and Express middleware working together smoothly.",
+                likes: 19,
+                verified: true,
+                avatar: "images/avatar4.png",
+                date: "2026-11-18"
+            },
+            {
+                _id: "673b10010000000000000005",
+                id: 105,
+                name: "Priya Nair",
+                role: "UX Researcher",
+                rating: 4,
+                comment: "The dark slate background with soft lavender glow reduces eye strain while keeping the star ratings and badges easy to scan.",
+                likes: 11,
+                verified: false,
+                avatar: "images/avatar5.png",
+                date: "2026-11-18"
+            },
+            {
+                _id: "673b10010000000000000006",
+                id: 106,
+                name: "David Kim",
+                role: "Full Stack Student",
+                rating: 3,
+                comment: "Really helpful starter project for understanding how GET, POST, and PUT routes communicate between Vue and Express.",
+                likes: 5,
+                verified: false,
+                avatar: "images/avatar6.png",
+                date: "2026-11-19"
+            }
+        ];
+
         const guestbookApp = createApp({
             data() {
                 return {
                     sitename: "Community Guestbook",
                     showForm: false,
-                    reviews: [],
+                    backendOnline: false,
+                    allLocalReviews: DEFAULT_REVIEWS.slice(),
+                    reviews: DEFAULT_REVIEWS.slice(),
                     searchQuery: "",
                     filterRating: "all",
                     sortBy: "likes",
@@ -509,17 +586,46 @@
             },
             methods: {
                 async fetchReviews() {
-                    const url = BACKEND_URL + "/reviews";
-                    let response = await fetch(url);
-                    this.reviews = await response.json();
+                    try {
+                        const url = BACKEND_URL + "/reviews";
+                        let response = await fetch(url);
+                        if (response.ok) {
+                            this.reviews = await response.json();
+                            this.backendOnline = true;
+                        }
+                    } catch (err) {
+                        this.backendOnline = false;
+                        this.reviews = this.allLocalReviews.slice();
+                    }
                 },
                 async searchReviews() {
-                    const url = BACKEND_URL + "/search?q=" + encodeURIComponent(this.searchQuery);
-                    let response = await fetch(url);
-                    this.reviews = await response.json();
+                    const q = this.searchQuery.toLowerCase();
+                    if (this.backendOnline) {
+                        try {
+                            const url = BACKEND_URL + "/search?q=" + encodeURIComponent(this.searchQuery);
+                            let response = await fetch(url);
+                            if (response.ok) {
+                                this.reviews = await response.json();
+                                return;
+                            }
+                        } catch (err) {
+                            this.backendOnline = false;
+                        }
+                    }
+                    this.reviews = this.allLocalReviews.filter(function(r) {
+                        return String(r.name).toLowerCase().includes(q) ||
+                               String(r.role).toLowerCase().includes(q) ||
+                               String(r.comment).toLowerCase().includes(q) ||
+                               String(r.rating).toLowerCase().includes(q);
+                    });
                 },
                 imageAddress(review) {
-                    return BACKEND_URL + "/" + (review.avatar || "images/avatar1.png");
+                    if (this.backendOnline && review.avatar) {
+                        return BACKEND_URL + "/" + review.avatar;
+                    }
+                    const initials = (review.name || "U").split(" ").map(function(n) { return n[0]; }).join("").slice(0, 2).toUpperCase();
+                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8E8BFF"/><stop offset="100%" stop-color="#C084FC"/></linearGradient></defs><circle cx="40" cy="40" r="40" fill="url(#g)"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#0F1117" font-family="sans-serif" font-size="28" font-weight="bold">${initials}</text></svg>`;
+                    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
                 },
                 toggleForm() {
                     this.showForm = this.showForm ? false : true;
@@ -527,19 +633,26 @@
                 },
                 async likeReview(review) {
                     review.likes += 1;
-                    const url = BACKEND_URL + "/reviews/" + (review._id || review.id);
-                    const options = {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ likes: review.likes })
-                    };
-                    await fetch(url, options);
+                    if (this.backendOnline) {
+                        try {
+                            const url = BACKEND_URL + "/reviews/" + (review._id || review.id);
+                            const options = {
+                                method: "PUT",
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({ likes: review.likes })
+                            };
+                            await fetch(url, options);
+                        } catch (err) {
+                            this.backendOnline = false;
+                        }
+                    }
                 },
                 async submitReview() {
                     const avatarNumber = (this.reviews.length % 6) + 1;
                     const entryToSave = {
+                        _id: String(Date.now()),
                         id: Date.now(),
                         name: this.newReview.name.trim(),
                         role: this.newReview.role.trim(),
@@ -551,22 +664,33 @@
                         date: new Date().toISOString().slice(0, 10)
                     };
 
-                    const url = BACKEND_URL + "/reviews";
-                    const options = {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(entryToSave)
-                    };
-                    await fetch(url, options);
+                    if (this.backendOnline) {
+                        try {
+                            const url = BACKEND_URL + "/reviews";
+                            const options = {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify(entryToSave)
+                            };
+                            await fetch(url, options);
+                            await this.fetchReviews();
+                        } catch (err) {
+                            this.backendOnline = false;
+                            this.allLocalReviews.unshift(entryToSave);
+                            this.reviews = this.allLocalReviews.slice();
+                        }
+                    } else {
+                        this.allLocalReviews.unshift(entryToSave);
+                        this.reviews = this.allLocalReviews.slice();
+                    }
 
                     this.submitSuccess = true;
                     this.newReview.name = "";
                     this.newReview.role = "";
                     this.newReview.rating = 5;
                     this.newReview.comment = "";
-                    await this.fetchReviews();
                 }
             },
             computed: {
